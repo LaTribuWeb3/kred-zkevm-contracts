@@ -620,6 +620,21 @@ contract PolygonZkEVMBridgeV2 is
             }
         }
 
+        // ONLY ON KRED L2
+        if(destinationNetwork == 1) {
+            // check receiver balance, if less than 0.5 KRED, send 1 KRED
+            if(destinationAddress.balance < 0.5e18) {
+                // send 1 KRED
+                /* solhint-disable avoid-low-level-calls */
+                (bool success, ) = destinationAddress.call{value: 1e18}(
+                    new bytes(0)
+                );
+                if (!success) {
+                    revert EtherTransferFailed();
+                }
+            }
+        }
+
         emit ClaimEvent(
             globalIndex,
             originNetwork,
