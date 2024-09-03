@@ -220,13 +220,6 @@ contract PolygonZkEVMBridgeV2 is
             gasTokenAddress = _gasTokenAddress;
             gasTokenNetwork = _gasTokenNetwork;
             gasTokenMetadata = _gasTokenMetadata;
-
-             // Create a wrapped token for WETH, with salt == 0
-            WETHToken = _deployWrappedToken(
-                0, // salt
-                "Wrapped Ether",
-                "WETH", 
-                18);
         }
 
         // Initialize OZ contracts
@@ -545,6 +538,15 @@ contract PolygonZkEVMBridgeV2 is
                 }
             } else {
                 // Claim wETH
+                if(address(WETHToken) == address(0)) {
+                    //  Create a wrapped token for WETH, with salt == 0
+                    WETHToken = _deployWrappedToken(
+                        0, // salt
+                        "Wrapped Ether",
+                        "WETH", 
+                        18);
+                }
+
                 WETHToken.mint(destinationAddress, amount);
             }
         } else {
