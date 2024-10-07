@@ -12,53 +12,16 @@ import "../lib/EmergencyManager.sol";
 import "../lib/GlobalExitRootLib.sol";
 
 
-interface IERCXXX {
-    function DOMAIN_TYPEHASH() external view returns (bytes32);
-    function PERMIT_TYPEHASH() external view returns (bytes32);
-    function VERSION() external view returns (string memory);
-    function deploymentChainId() external view returns (uint256);
-    function bridgeAddress() external view returns (address);
-    function nonces(address owner) external view returns (uint256);
-    function SHARE_PRICE_PRECISION() external view returns (uint256);
-    function sharePrice() external view returns (uint256);
-    function totalBorrowableShares() external view returns (uint256);
-    function borrowBlacklist(address account) external view returns (bool);
-    function maxBorrowSupplyToRealSupplyRatio() external view returns (uint256);
-    function totalBorrowedSupply() external view returns (uint256);
-    function name() external view returns (string memory);
-    function symbol() external view returns (string memory);
-    function decimals() external view returns (uint8);
-    function balanceOf(address account) external view returns (uint256);
-    function totalSupply() external view returns (uint256);
-    function totalBorrowableSupply() external view returns (uint256);
-    function currentBorrowableSupply() external view returns (uint256);
-    function realTotalSupply() external view returns (uint256);
-    function DOMAIN_SEPARATOR() external view returns (bytes32);
-
+/// simplified ERC7770 interface
+interface IERC7770 {
     function initialize(
         address _core,
         string calldata erc20name,
         string calldata erc20symbol,
         uint8 __decimals
     ) external;
-
-    function permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external;
-
     function mint(address account, uint256 value) external;
     function burn(address account, uint256 value) external;
-    function setBorrowBlacklist(address account, bool value) external;
-    function setMaxBorrowSupplyToRealSupplyRatio(uint256 value) external;
-    function setSharePrice(uint256 value) external;
-    function mintForBorrow(address to, uint256 amount) external;
-    function burnForRepay(address from, uint256 amount) external;
 }
 
 /**
@@ -136,11 +99,11 @@ contract PolygonZkEVMBridgeV2 is
     bytes public gasTokenMetadata;
 
     // WETH address
-    IERCXXX public WETHToken;
+    IERC7770 public WETHToken;
 
     address public core;
 
-    bytes public ercxxxBytecode = "";
+    bytes public erc7770Bytecode = "";
 
     /**
      * @dev Emitted when bridge assets or messages to another network
@@ -283,7 +246,7 @@ contract PolygonZkEVMBridgeV2 is
             // In case ether is the native token, WETHToken will be 0, and the address 0 is already checked
             if (token == address(WETHToken)) {
                 // Burn tokens
-                IERCXXX(token).burn(msg.sender, amount);
+                IERC7770(token).burn(msg.sender, amount);
 
                 // Both origin network and originTokenAddress will be 0
                 // Metadata will be empty
@@ -296,7 +259,7 @@ contract PolygonZkEVMBridgeV2 is
                     // The token is a wrapped token from another network
 
                     // Burn tokens
-                    IERCXXX(token).burn(msg.sender, amount);
+                    IERC7770(token).burn(msg.sender, amount);
 
                     originTokenAddress = tokenInfo.originTokenAddress;
                     originNetwork = tokenInfo.originNetwork;
@@ -585,7 +548,7 @@ contract PolygonZkEVMBridgeV2 is
 
                         (string memory name, string memory symbol, uint8 decimals) = abi.decode(metadata, (string, string, uint8));
                         // Create a new wrapped erc20 using create2
-                        IERCXXX newWrappedToken = _deployWrappedToken(
+                        IERC7770 newWrappedToken = _deployWrappedToken(
                             tokenInfoHash,
                             name,
                             symbol,
@@ -612,7 +575,7 @@ contract PolygonZkEVMBridgeV2 is
                         );
                     } else {
                         // Use the existing wrapped erc20
-                        IERCXXX(wrappedToken).mint(
+                        IERC7770(wrappedToken).mint(
                             destinationAddress,
                             amount
                         );
@@ -770,7 +733,7 @@ contract PolygonZkEVMBridgeV2 is
                 bytes1(0xff),
                 address(this),
                 salt,
-                keccak256(ercxxxBytecode)
+                keccak256(erc7770Bytecode)
             )
         );
 
@@ -1094,8 +1057,8 @@ contract PolygonZkEVMBridgeV2 is
         string memory name,
         string memory symbol,
         uint8 decimals
-    ) internal returns (IERCXXX newWrappedToken) {
-        bytes memory initBytecode = ercxxxBytecode;
+    ) internal returns (IERC7770 newWrappedToken) {
+        bytes memory initBytecode = erc7770Bytecode;
 
         /// @solidity memory-safe-assembly
         assembly {
@@ -1111,7 +1074,7 @@ contract PolygonZkEVMBridgeV2 is
 
         require(core != address(0), "Core is not set");
 
-        IERCXXX(newWrappedToken).initialize(core, name, symbol, decimals);
+        IERC7770(newWrappedToken).initialize(core, name, symbol, decimals);
     }
 
     // Helpers to safely get the metadata from a token, inspired by https://github.com/traderjoe-xyz/joe-core/blob/main/contracts/MasterChefJoeV3.sol#L55-L95
@@ -1223,7 +1186,7 @@ contract PolygonZkEVMBridgeV2 is
     }
 
     function setBytecode(bytes memory _bytecode) external {
-        ercxxxBytecode = _bytecode;
+        erc7770Bytecode = _bytecode;
     }
 
     function setCore(address _core) external {
